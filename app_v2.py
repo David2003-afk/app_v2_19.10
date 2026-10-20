@@ -26,11 +26,19 @@ BASE = "https://estadisticas.bcrp.gob.pe/estadisticas/series/api"
 
 
 def parse_period(name: str, freq: str):
-    if freq == "D":  # ej. 02Ene20
-        m = re.match(r"(\d{2})([A-Za-z]{3})(\d{2})", name)
-        return pd.Timestamp(2000 + int(m[3]), MESES[m[2].capitalize()], int(m[1]))
-    m = re.match(r"([A-Za-z]{3})\.?(\d{4})", name)  # ej. Ene.2020
-    return pd.Timestamp(int(m[2]), MESES[m[1].capitalize()], 1)
+    clean = re.sub(r"[^0-9A-Za-z]", "", name)  # quita puntos y espacios
+    if freq == "D":  # 02.Ene.20 -> 02Ene20
+        m = re.match(r"^(\d{1,2})([A-Za-z]{3})(\d{2,4})$", clean)
+        if not m:
+            raise ValueError(f"Formato de fecha diaria no reconocido: {name}")
+        d, mes, y = int(m[1]), m[2].capitalize(), int(m[3])
+    else:  # Ene.2020 -> Ene2020
+        m = re.match(r"^([A-Za-z]{3})(\d{2,4})$", clean)
+        if not m:
+            raise ValueError(f"Formato de fecha mensual no reconocido: {name}")
+        d, mes, y = 1, m[1].capitalize(), int(m[2])
+    y = y + 2000 if y < 100 else y
+    return pd.Timestamp(y, MESES[mes], d)
 
 
 @st.cache_data(ttl=6 * 3600, show_spinner="Consultando BCRPData…")
